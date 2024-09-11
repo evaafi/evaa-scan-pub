@@ -1,7 +1,6 @@
 import {MyDatabase} from "../../db/database";
-import {AxiosInstance, AxiosResponse, isAxiosError} from "axios";
-import {AssetID, decimals, evaaMaster, serviceChatID} from "../../config";
-import {getAddressFriendly, getAssetName, getFriendlyAmount, getRequest} from "./helpers";
+import {isAxiosError} from "axios";
+import {getAddressFriendly, } from "./helpers";
 import {sleep} from "../../helpers";
 import {Address, Transaction} from "@ton/core";
 import {GetResult, UserPrincipals} from "./types";
@@ -11,6 +10,8 @@ import * as fs from "fs";
 import { Api, Transactions } from "tonapi-sdk-js";
 import { Log, TxType } from "../../db/types";
 import { retry } from "../..";
+import {PoolAssetConfig} from "@evaafi/sdk"
+import { serviceChatID } from "../../config";
 
 let lastRpcCall = 0;
 
@@ -24,13 +25,13 @@ const errorCodes = {
     0x31F0: "User withdraw in process"
 }
 
-export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, bot: Bot, walletAddress: Address, sync = false) {
+export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, tonClient: TonClient, bot: Bot, walletAddress: Address, sync = false) {
     let before_lt = 0;
     let attempts = 0;
     while (true) {
         let result: Transactions;
         try {
-            result = await tonApi.blockchain.getBlockchainAccountTransactions(evaaMaster.toString(), {
+            result = await tonApi.blockchain.getBlockchainAccountTransactions(db.evaaPool.masterAddress.toString(), {
                 before_lt: before_lt === 0 ? undefined : before_lt,
                 limit: 1000
             });
@@ -78,10 +79,26 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, b
             let opStr = transaction.in_msg ? transaction.in_msg.op_code : undefined;
             if (opStr === undefined) continue;
             const op = parseInt(opStr);
-            if (op === 0x11a || op === 0x211 || op === 0x311) {
+            let userContractAddress: Address;
+
+            if (op === 0x1 || op === 0x2 || op === 0x3 || op === 0x7362d09c || op === 0xd2) {
+                if (!(transaction.compute_phase.success === true)) continue;
+                const outMsgs = transaction.out_msgs;
+                if (outMsgs.length !== 1) continue;
+                userContractAddress = Address.parseRaw(outMsgs[0].destination.address);
+                //console.log('usersc0x10x20x3', userContractAddress);
+                if (op === 0x7362d09c) {
+                    const inAddress = Address.parseRaw(transaction.in_msg.source.address);
+                    if (inAddress.equals(userContractAddress)) {
+                        console.log(`Contract ${getAddressFriendly(userContractAddress)} is not a user contract`);
+                        continue;
+                    }
+                }
+            } else if (op === 0x11a || op === 0x211 || op === 0x311) {
                 if (transaction.compute_phase === undefined || transaction.action_phase === undefined) continue;
                 if (!(transaction.compute_phase.success === true)) continue;
                 if (!(transaction.action_phase.success === true)) continue;
+                userContractAddress = Address.parseRaw(transaction.in_msg.source.address);
                 transaction.out_msgs.sort((a, b) => a.created_lt - b.created_lt);
                 const outMsgs = transaction.out_msgs;
                 const reportMsgBody = Cell.fromBoc(Buffer.from(outMsgs[0].raw_body!, 'hex'))[0].beginParse();
@@ -230,6 +247,122 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, b
             else {
                 continue;
             }
+            let userDataResult: GetResult;
+            setTimeout(async () => {
+                const user = await db.getUser(getAddressFriendly(userContractAddress));
+
+                if(user && user.updatedAt > utime) {
+                    //console.log('seek!!', user, userContractAddress);
+                    await db.updateUserTime(getAddressFriendly(userContractAddress), utime, utime);
+                    console.log(`Contract ${getAddressFriendly(userContractAddress)} updated (time)`);
+                    return;
+                }
+
+                let attempts = 0;
+                let userDataSuccess = false;
+                while (true) {
+                    try {
+                        // if (Date.now() - lastRpcCall < 200) {
+                        //     await sleep(200);
+                        //     continue;
+                        // }
+                        // lastRpcCall = Date.now();
+                        userDataResult = await tonClient.runMethodWithError(
+                            userContractAddress, 'getAllUserScData'
+                        );
+
+                        if (userDataResult.exit_code === 0) {
+                            userDataSuccess = true;
+                            break;
+                        }
+
+                        attempts++;
+                        if (attempts > 10) {
+                            console.log(`Problem with user contract ${getAddressFriendly(userContractAddress)}`);
+                            break;
+                        }
+                        await sleep(2000);
+                    } catch (e) {
+                        attempts++;
+                        if (attempts > 10) {
+                            console.log(e);
+                            console.log(`Problem with TonClient. Reindex is needed`);
+                            await bot.api.sendMessage(serviceChatID, `🚨🚨🚨 Problem with TonClient. Reindex is needed 🚨🚨🚨`);
+                            break;
+                        }
+                        if (!isAxiosError(e)) {
+                            console.log(isAxiosError(e));
+                            console.log(e)
+                        }
+                        await sleep(2000);
+                    }
+                }
+                if (!userDataSuccess) {
+                    await bot.api.sendMessage(serviceChatID, `🚨🚨🚨 Problem with user contract ${getAddressFriendly(userContractAddress)} 🚨🚨🚨`);
+                    return;
+                }
+                if (userDataResult.exit_code !== 0) {
+                    await bot.api.sendMessage(serviceChatID, `🚨🚨🚨 Problem with user contract ${getAddressFriendly(userContractAddress)} 🚨🚨🚨`);
+                    console.log(userDataResult)
+                    return;
+                }
+                const codeVersion = userDataResult.stack.readNumber();
+                userDataResult.stack.readCell(); // master
+                const userAddress = userDataResult.stack.readCell().beginParse().loadAddress();
+                const principalsDict = userDataResult.stack.readCellOpt()?.beginParse()
+                    .loadDictDirect(Dictionary.Keys.BigUint(256), Dictionary.Values.BigInt(64));
+                const state = userDataResult.stack.readNumber();
+
+                const userPrincipals: UserPrincipals = new Map<PoolAssetConfig, bigint>(); //new Map<PoolAssetConfig, bigint>();
+
+                if (principalsDict !== undefined) {
+                    for (const asset of db.evaaPool.poolAssetsConfig) {
+                        if (principalsDict.has(asset.assetId)) {
+                            userPrincipals.set(asset, principalsDict.get(asset.assetId));
+                        }
+                    }
+                    /*if (principalsDict.has(AssetID.ton))
+                        userPrincipals.ton = principalsDict.get(AssetID.ton);
+                    if (principalsDict.has(AssetID.jusdt))
+                        userPrincipals.jusdt = principalsDict.get(AssetID.jusdt);
+                    if (principalsDict.has(AssetID.jusdc))
+                        userPrincipals.jusdc = principalsDict.get(AssetID.jusdc);
+                    if (principalsDict.has(AssetID.stton))
+                        userPrincipals.stton = principalsDict.get(AssetID.stton);
+                    if (principalsDict.has(AssetID.tston))
+                        userPrincipals.tston = principalsDict.get(AssetID.tston);
+                    if (principalsDict.has(AssetID.usdt))
+                        userPrincipals.usdt = principalsDict.get(AssetID.usdt);*/
+                } /*else {
+                    console.log('else8', userAddress);
+                }*/
+
+                if (user) {
+                    if (user.createdAt > utime)
+                        user.createdAt = utime;
+                    if (user.updatedAt < utime)
+                        user.updatedAt = utime;
+                    if (user.codeVersion != codeVersion)
+                        user.codeVersion = codeVersion;
+                    await db.updateUser(getAddressFriendly(userContractAddress), user.codeVersion,
+                        user.createdAt, user.updatedAt,/* userPrincipals.ton,
+                        userPrincipals.jusdt, userPrincipals.jusdc, userPrincipals.stton, userPrincipals.tston, userPrincipals.usdt,*/userPrincipals, state);
+                    console.log(`Contract ${getAddressFriendly(userContractAddress)} updated`);
+                }
+                else {
+                    try {
+                        await db.addUser(getAddressFriendly(userAddress), getAddressFriendly(userContractAddress), codeVersion,
+                            utime, utime, /*userPrincipals.ton, userPrincipals.jusdt, userPrincipals.jusdc, userPrincipals.stton, userPrincipals.tston, userPrincipals.usdt,*/userPrincipals, state);
+                        console.log(`Contract ${getAddressFriendly(userContractAddress)} added`);
+                    } catch (e) {
+                        console.log('error per adding', e);
+                        await db.updateUser(getAddressFriendly(userContractAddress), codeVersion,
+                            utime, utime, /*userPrincipals.ton, userPrincipals.jusdt, userPrincipals.jusdc, userPrincipals.stton, userPrincipals.tston, userPrincipals.usdt,*/ userPrincipals, state);
+                        console.log(`Contract ${getAddressFriendly(userContractAddress)} updated`);
+                    }
+                }
+            }, 60000);
+
         }
 
         console.log(`Before lt: ${before_lt}`);

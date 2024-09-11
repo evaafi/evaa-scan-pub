@@ -1,4 +1,5 @@
 import {TupleReader} from "@ton/core";
+import {PoolAssetConfig} from "@evaafi/sdk"
 
 export type GetResult = {
     gas_used: number;
@@ -6,11 +7,4 @@ export type GetResult = {
     exit_code: number;
 };
 
-export type UserPrincipals = {
-    ton: bigint,
-    jusdt: bigint,
-    jusdc: bigint,
-    stton: bigint,
-    tston: bigint,
-    usdt: bigint
-}
+export type UserPrincipals = Map<PoolAssetConfig, bigint>;

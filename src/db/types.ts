@@ -1,4 +1,5 @@
 import { Address } from "@ton/core";
+import { UserPrincipals } from "../services/indexer/types";
 
 export type User = {
     id: number,
@@ -7,29 +8,8 @@ export type User = {
     codeVersion: number,
     createdAt: number,
     updatedAt: number,
-    tonPrincipal: bigint,
-    jusdtPrincipal: bigint,
-    jusdcPrincipal: bigint,
-    sttonPrincipal: bigint,
-    tstonPrincipal: bigint,
-    usdtPrincipal: bigint,
-    state: string
-}
-
-export type Task = {
-    id: number;
-    walletAddress: string;
-    contractAddress: string;
-    createdAt: number;
-    updatedAt: number;
-    loanAsset: bigint;
-    collateralAsset: bigint;
-    liquidationAmount: bigint;
-    minCollateralAmount: bigint;
-    pricesCell: string;
-    signature: string;
-    queryID: bigint;
-    state: string;
+    principals: UserPrincipals,
+    state: bigint
 }
 
 export enum TxType {

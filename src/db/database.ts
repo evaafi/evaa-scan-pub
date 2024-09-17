@@ -251,7 +251,7 @@ export class MyDatabase {
 
         await this.pgPool.query(`
             INSERT INTO ${this.usersTable}(wallet_address, contract_address, code_version, created_at, updated_at, 
-                              ` + columns.join(', ') + `, state)
+                              ` + columns.map(x => x + ',').join(' ') + ` state)
             VALUES(` + this.createNumberString(columns.length + 6) + `)
         `, [wallet_address, contract_address, code_version, new Date(created_at).toUTCString(), new Date(updated_at).toUTCString(),
             /*ton_principal.toString(), jusdt_principal.toString(), jusdc_principal.toString(), stton_principal.toString(),

@@ -10,8 +10,9 @@ import * as fs from "fs";
 import { Api, Transactions } from "tonapi-sdk-js";
 import { Log, TxType } from "../../db/types";
 import { retry } from "../..";
-import {PoolAssetConfig} from "@evaafi/sdk"
+import {PoolAssetConfig, PoolConfig} from "@evaafi/sdk"
 import { serviceChatID } from "../../config";
+import { EVAA_LP_MAINNET } from "@evaafi/sdk/dist/constants/general";
 
 let lastRpcCall = 0;
 
@@ -25,7 +26,7 @@ const errorCodes = {
     0x31F0: "User withdraw in process"
 }
 
-export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, tonClient: TonClient, bot: Bot, walletAddress: Address, sync = false) {
+export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, tonClient: TonClient, bot: Bot, walletAddress: Address, poolConfig: PoolConfig, sync = false) {
     let before_lt = 0;
     let attempts = 0;
     while (true) {
@@ -48,6 +49,7 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
             continue;
         }
         const transactions = result.transactions;
+        //console.log(transactions.length);
         if (transactions.length === 0) break;
         const firstTxHash = BigInt('0x' + transactions[0].hash);
         const first = await db.isTxExists(firstTxHash);
@@ -159,6 +161,9 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                     if (op !== 2) throw new Error(`Invalid op code ${op} for transaction ${hash.toString(16)}`);
                     const userAddress = logBody.loadAddress();
                     const userContractAddress = logBody.loadAddress();
+                    if (poolConfig.masterAddress == EVAA_LP_MAINNET && outMsgs.find(x => x.created_lt >= 49712577000001)) {
+                        const receiptAddress = logBody.loadAddress();
+                    }
                     const currentTime = logBody.loadUint(32);
                     const supplyAssetData = logBody.loadRef().beginParse();
                     supplyAssetData.endParse();
@@ -171,6 +176,8 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                     const sRate = attachedAssetData.loadUintBig(64);
                     const bRate = attachedAssetData.loadUintBig(64);
                     attachedAssetData.endParse();
+                    //const forward_ton_amount = logBody.loadUintBig(64);
+                    //console.log(logBody.remainingBits, logBody.remainingRefs);
                     logBody.endParse();
 
                     log = {
@@ -197,6 +204,9 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                     if (op !== 3) throw new Error(`Invalid op code ${op} for transaction ${hash.toString(16)}`);
                     const userAddress = logBody.loadAddress();
                     const userContractAddress = logBody.loadAddress();
+                    if (poolConfig.masterAddress == EVAA_LP_MAINNET && outMsgs.find(x => x.created_lt >= 49712577000001)) {
+                        const liquidator_address = logBody.loadAddress();
+                    }
                     const currentTime = logBody.loadUint(32);
                     const attachedAssetData = logBody.loadRef().beginParse();
                     const transferredAssetID = attachedAssetData.loadUintBig(256);
@@ -303,7 +313,7 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                 }
                 if (userDataResult.exit_code !== 0) {
                     await bot.api.sendMessage(serviceChatID, `🚨🚨🚨 Problem with user contract ${getAddressFriendly(userContractAddress)} 🚨🚨🚨`);
-                    console.log(userDataResult)
+                    //console.log(userDataResult)
                     return;
                 }
                 const codeVersion = userDataResult.stack.readNumber();

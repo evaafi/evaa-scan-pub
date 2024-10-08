@@ -77,14 +77,14 @@ async function main(bot: Bot) {
     });
 
     console.log(`Indexer is syncing...`);
-    await handleTransactions(db, client, tonClient, bot, db.evaaPool.masterAddress, true);
+    await handleTransactions(db, client, tonClient, bot, db.evaaPool.masterAddress, currentPool, true);
     console.log(`Indexer is synced. Waiting 5 sec before starting`);
 
     await sleep(5000);
     const tick = async () => {
         console.log('Starting handleTransactions...')
         try {
-            await handleTransactions(db, client, tonClient, bot, db.evaaPool.masterAddress);
+            await handleTransactions(db, client, tonClient, bot, db.evaaPool.masterAddress, currentPool);
         } catch (e) {
             console.log(e);
             await retry(async () => {     

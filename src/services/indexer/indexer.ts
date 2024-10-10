@@ -12,7 +12,7 @@ import { Log, TxType } from "../../db/types";
 import { retry } from "../..";
 import {PoolAssetConfig, PoolConfig} from "@evaafi/sdk"
 import { serviceChatID } from "../../config";
-import { EVAA_LP_MAINNET } from "@evaafi/sdk/dist/constants/general";
+import { EVAA_LP_MAINNET, EVAA_MASTER_MAINNET } from "@evaafi/sdk/dist/constants/general";
 
 let lastRpcCall = 0;
 
@@ -164,6 +164,9 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                     if (poolConfig.masterAddress == EVAA_LP_MAINNET && outMsgs.find(x => x.created_lt >= 49712577000001)) {
                         const receiptAddress = logBody.loadAddress();
                     }
+                    if (poolConfig.masterAddress == EVAA_MASTER_MAINNET && outMsgs.find(x => x.created_lt >= 49828980000001)) {
+                        const receiptAddress = logBody.loadAddress();
+                    }
                     const currentTime = logBody.loadUint(32);
                     const supplyAssetData = logBody.loadRef().beginParse();
                     supplyAssetData.endParse();
@@ -205,6 +208,9 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                     const userAddress = logBody.loadAddress();
                     const userContractAddress = logBody.loadAddress();
                     if (poolConfig.masterAddress == EVAA_LP_MAINNET && outMsgs.find(x => x.created_lt >= 49712577000001)) {
+                        const liquidator_address = logBody.loadAddress();
+                    }
+                    if (poolConfig.masterAddress == EVAA_MASTER_MAINNET && outMsgs.find(x => x.created_lt >= 49828980000001)) {
                         const liquidator_address = logBody.loadAddress();
                     }
                     const currentTime = logBody.loadUint(32);

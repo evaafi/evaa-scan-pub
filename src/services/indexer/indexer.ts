@@ -331,6 +331,10 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
 
                 const userPrincipals: UserPrincipals = new Map<PoolAssetConfig, bigint>(); //new Map<PoolAssetConfig, bigint>();
 
+                for (const asset of db.evaaPool.poolAssetsConfig) {
+                    userPrincipals.set(asset, 0n);
+                }
+
                 if (principalsDict !== undefined) {
                     for (const asset of db.evaaPool.poolAssetsConfig) {
                         if (principalsDict.has(asset.assetId)) {

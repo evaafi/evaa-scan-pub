@@ -66,8 +66,8 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
         transactions.sort((a, b) => b.lt - a.lt);
         for (const transaction of transactions) {
             const hash = BigInt('0x' + transaction.hash);
-            const utime = transaction.utime;
-            if (utime < 1716051631) {
+            const utime = transaction.utime * 1000;
+            if (utime < 1716051631 * 1000) {
                 return;
             };
             const addResult = await db.addTransaction(hash, utime);

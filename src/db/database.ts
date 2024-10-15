@@ -249,13 +249,31 @@ export class MyDatabase {
         jusdt_principal: bigint, jusdc_principal: bigint, stton_principal: bigint, tston_principal: bigint, usdt_principal: bigint,*/ principals: UserPrincipals, state: number) {
         const columns = this.getAssetsColumnNames(Array.from(principals.keys()));
 
-        await this.pgPool.query(`
+        /*await this.pgPool.query(`
             INSERT INTO ${this.usersTable}(wallet_address, contract_address, code_version, created_at, updated_at, 
                               ` + columns.map(x => x + ',').join(' ') + ` state)
             VALUES(` + this.createNumberString(columns.length + 6) + `)
         `, [wallet_address, contract_address, code_version, new Date(created_at).toUTCString(), new Date(updated_at).toUTCString(),
             /*ton_principal.toString(), jusdt_principal.toString(), jusdc_principal.toString(), stton_principal.toString(),
-            tston_principal.toString(), usdt_principal.toString(),*/...Array.from(principals.values()).map(x => x.toString()), state.toString()])
+            tston_principal.toString(), usdt_principal.toString(),*//*...Array.from(principals.values()).map(x => x.toString()), state.toString()])*/
+        await this.pgPool.query(`
+            INSERT INTO ${this.usersTable} (wallet_address, contract_address, code_version, created_at, updated_at, ` 
+                + columns.map(x => x + ',').join(' ') + ` state)
+            VALUES(` + this.createNumberString(columns.length + 6) + `)
+            ON CONFLICT (wallet_address) 
+            DO UPDATE SET
+                contract_address = EXCLUDED.contract_address,
+                code_version = EXCLUDED.code_version,
+                created_at = EXCLUDED.created_at,
+                updated_at = EXCLUDED.updated_at, 
+                ` + columns.map(x => `${x} = EXCLUDED.${x},`).join(' ') + `
+                state = EXCLUDED.state
+        `, [
+            wallet_address, contract_address, code_version, 
+            new Date(created_at).toUTCString(), new Date(updated_at).toUTCString(),
+            ...Array.from(principals.values()).map(x => x.toString()), 
+            state.toString()
+        ]);
     }
 
     async getUser(contract_address: string): Promise<User> {

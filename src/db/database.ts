@@ -114,7 +114,7 @@ export class MyDatabase {
                 WHEN EXISTS (SELECT 1 FROM cte1) THEN true
                 ELSE false
             END AS exists;
-        `, [hash.toString(), new Date(utime * 1000).toISOString()]);
+        `, [hash.toString(), new Date(utime).toISOString()]);
         
         return result.rows[0].exists;
     }

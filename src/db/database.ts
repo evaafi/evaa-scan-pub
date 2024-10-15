@@ -260,9 +260,9 @@ export class MyDatabase {
             INSERT INTO ${this.usersTable} (wallet_address, contract_address, code_version, created_at, updated_at, ` 
                 + columns.map(x => x + ',').join(' ') + ` state)
             VALUES(` + this.createNumberString(columns.length + 6) + `)
-            ON CONFLICT (wallet_address) 
+            ON CONFLICT (contract_address) 
             DO UPDATE SET
-                contract_address = EXCLUDED.contract_address,
+                wallet_address = EXCLUDED.wallet_address,
                 code_version = EXCLUDED.code_version,
                 created_at = EXCLUDED.created_at,
                 updated_at = EXCLUDED.updated_at, 

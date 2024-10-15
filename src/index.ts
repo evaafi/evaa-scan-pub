@@ -81,7 +81,7 @@ async function main(bot: Bot) {
     console.log(`Indexer is synced. Waiting 5 sec before starting`);
 
     await sleep(5000);
-    const tick = async () => {
+    /*const tick = async () => {
         console.log('Starting handleTransactions...')
         try {
             await handleTransactions(db, client, tonClient, bot, db.evaaPool.masterAddress, currentPool);
@@ -99,7 +99,24 @@ async function main(bot: Bot) {
         setTimeout(tick, 2000);
     }
 
-    tick();
+    tick();*/
+    while (true) {
+        console.log('Starting handleTransactions...')
+        try {
+            await handleTransactions(db, client, tonClient, bot, db.evaaPool.masterAddress, currentPool);
+        } catch (e) {
+            console.log(e);
+            await retry(async () => {     
+                if (JSON.stringify(e).length == 2) {
+                    await bot.api.sendMessage(serviceChatID, `[Indexer]: ${e}`);
+                    return;
+                }
+                await bot.api.sendMessage(serviceChatID, `[Indexer]: ${JSON.stringify(e).slice(0, 300)}`);
+            }, 3, 5000, 'Error Logging');
+        }
+
+        await sleep(2000);
+    }
 }
 
 (() => {

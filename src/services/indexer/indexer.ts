@@ -50,7 +50,10 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
         }
         const transactions = result.transactions;
         //console.log(transactions.length);
+
         if (transactions.length === 0) break;
+        transactions.sort((a, b) => b.lt - a.lt);
+
         const firstTxHash = BigInt('0x' + transactions[0].hash);
         const first = await db.isTxExists(firstTxHash);
         if (first) {
@@ -63,7 +66,6 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
             continue;
         }
 
-        transactions.sort((a, b) => b.lt - a.lt);
         for (const transaction of transactions) {
             const hash = BigInt('0x' + transaction.hash);
             const utime = transaction.utime * 1000;

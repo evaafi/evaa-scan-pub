@@ -102,7 +102,7 @@ export class MyDatabase {
         const result = await this.pgPool.query(`
             WITH cte1 AS (
                 SELECT id
-                FROM scaner_txs
+                FROM ${process.env.SCANNER_TXS_TABLE}
                 WHERE hash = $1
             ), insert_result AS (
                 INSERT INTO ${process.env.SCANNER_TXS_TABLE}(hash, utime)

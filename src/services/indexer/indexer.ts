@@ -1,4 +1,4 @@
-import {MyDatabase} from "../../db/database";
+import {getFriendlyAddress, MyDatabase} from "../../db/database";
 import {isAxiosError} from "axios";
 import {getAddressFriendly, } from "./helpers";
 import {sleep} from "../../helpers";
@@ -84,7 +84,7 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
             if (opStr === undefined) continue;
             const op = parseInt(opStr);
             let userContractAddress: Address;
-
+            console.log('opfinder', op);
             if (op === 0x1 || op === 0x2 || op === 0x3 || op === 0x7362d09c || op === 0xd2) {
                 if (!(transaction.compute_phase.success === true)) continue;
                 const outMsgs = transaction.out_msgs;
@@ -103,6 +103,7 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                 if (!(transaction.compute_phase.success === true)) continue;
                 if (!(transaction.action_phase.success === true)) continue;
                 userContractAddress = Address.parseRaw(transaction.in_msg.source.address);
+                console.log('addrs ', getFriendlyAddress(Address.parseRaw(transaction.account.address)), getFriendlyAddress(userContractAddress))
                 transaction.out_msgs.sort((a, b) => a.created_lt - b.created_lt);
                 const outMsgs = transaction.out_msgs;
                 const reportMsgBody = Cell.fromBoc(Buffer.from(outMsgs[0].raw_body!, 'hex'))[0].beginParse();
@@ -110,7 +111,9 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                 reportMsgBody.loadMaybeRef() // upgrade info
                 reportMsgBody.loadInt(2) // upgrade exec
                 const reportOp = reportMsgBody.loadUint(32);
-                if (reportOp !== 0x11f1 && reportOp !== 0x211a && reportOp !== 0x311a) continue;
+                console.log('report op', reportOp, reportOp !== 0x11f1 && reportOp !== 0x211a && reportOp !== 0x311a);
+                // supply success in first
+                if (op !== 0x11a /*0x11f1*/ && reportOp !== 0x211a && reportOp !== 0x311a) continue;
                 const logMsg = outMsgs.find(msg => msg.msg_type === 'ext_out_msg');
                 
                 if (logMsg === undefined) {
@@ -119,7 +122,7 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                 }
 
                 const logBody = Cell.fromBoc(Buffer.from(logMsg.raw_body!, 'hex'))[0].beginParse();
-
+                console.log('opcode ', op, op === 0x11a)
                 let log: Log;
                 if (op === 0x11a) {
                     const op = logBody.loadUint(8);

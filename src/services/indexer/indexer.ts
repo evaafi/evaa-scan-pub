@@ -112,6 +112,13 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                 reportMsgBody.loadInt(2) // upgrade exec
                 const reportOp = reportMsgBody.loadUint(32);
                 console.log('report op', reportOp, reportOp !== 0x11f1 && reportOp !== 0x211a && reportOp !== 0x311a);
+                // if older than v6 (v5..v2)
+                if (!(poolConfig.masterAddress == EVAA_LP_MAINNET && outMsgs.find(x => x.created_lt >= 49712577000001) ||
+                    poolConfig.masterAddress == EVAA_MASTER_MAINNET && outMsgs.find(x => x.created_lt >= 49828980000001))) {
+                    if (reportOp !== 0x11f1 && reportOp !== 0x211a && reportOp !== 0x311a) {
+                        continue;
+                    }
+                }
                 // supply success in first
                 if (op !== 0x11a /*0x11f1*/ && reportOp !== 0x211a && reportOp !== 0x311a) continue;
                 const logMsg = outMsgs.find(msg => msg.msg_type === 'ext_out_msg');

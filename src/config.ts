@@ -12,8 +12,6 @@ export function sha256Hash(input: string): bigint {
 }
 
 
-export const rpcEndpoint = 'https://rpc.evaa.finance/api/v2/jsonRPC'
-export const tonApiEndpoint = 'https://tonapi.io/';
 export const isTestnet = false;
 
 export const serviceChatID = process.env.CHAT_ID;

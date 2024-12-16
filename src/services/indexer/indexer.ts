@@ -12,7 +12,7 @@ import { Log, TxType } from "../../db/types";
 import { retry } from "../..";
 import {PoolAssetConfig, PoolConfig} from "@evaafi/sdk"
 import { serviceChatID } from "../../config";
-import { EVAA_LP_MAINNET, EVAA_MASTER_MAINNET } from "@evaafi/sdk/dist/constants/general";
+import { EVAA_ALTS_MAINNET, EVAA_LP_MAINNET, EVAA_MASTER_MAINNET } from "@evaafi/sdk/dist/constants/general";
 
 let lastRpcCall = 0;
 
@@ -176,6 +176,9 @@ export async function handleTransactions(db: MyDatabase, tonApi: Api<unknown>, t
                         const receiptAddress = logBody.loadAddress();
                     }
                     if (poolConfig.masterAddress == EVAA_MASTER_MAINNET && outMsgs.find(x => x.created_lt >= 49828980000001)) {
+                        const receiptAddress = logBody.loadAddress();
+                    }
+                    if (poolConfig.masterAddress == EVAA_ALTS_MAINNET) {
                         const receiptAddress = logBody.loadAddress();
                     }
                     const currentTime = logBody.loadUint(32);

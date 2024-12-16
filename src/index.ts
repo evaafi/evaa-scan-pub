@@ -6,7 +6,7 @@ import { Bot } from "grammy";
 import { sleep } from "./helpers";
 import {Pool, PoolConfig} from "pg";
 import { Api, HttpClient } from "tonapi-sdk-js";
-import { MAINNET_LP_POOL_CONFIG, MAINNET_POOL_CONFIG, PoolConfig as EvaaPoolConifg} from "@evaafi/sdk";
+import { MAINNET_LP_POOL_CONFIG, MAINNET_POOL_CONFIG, PoolConfig as EvaaPoolConifg, MAINNET_ALTS_POOL_CONFIG} from "@evaafi/sdk";
 import { serviceChatID } from "./config";
 
 export async function retry<T>(
@@ -39,7 +39,8 @@ async function main(bot: Bot) {
     
     const pools = {
         'main': MAINNET_POOL_CONFIG,
-        'lp': MAINNET_LP_POOL_CONFIG
+        'lp': MAINNET_LP_POOL_CONFIG,
+        'alts': MAINNET_ALTS_POOL_CONFIG
     };
 
     let currentPool: EvaaPoolConifg = pools['main'];
@@ -81,25 +82,7 @@ async function main(bot: Bot) {
     console.log(`Indexer is synced. Waiting 5 sec before starting`);
 
     await sleep(5000);
-    /*const tick = async () => {
-        console.log('Starting handleTransactions...')
-        try {
-            await handleTransactions(db, client, tonClient, bot, db.evaaPool.masterAddress, currentPool);
-        } catch (e) {
-            console.log(e);
-            await retry(async () => {     
-                if (JSON.stringify(e).length == 2) {
-                    await bot.api.sendMessage(serviceChatID, `[Indexer]: ${e}`);
-                    return;
-                }
-                await bot.api.sendMessage(serviceChatID, `[Indexer]: ${JSON.stringify(e).slice(0, 300)}`);
-            }, 3, 5000, 'Error Logging');
-        }
 
-        setTimeout(tick, 2000);
-    }
-
-    tick();*/
     while (true) {
         console.log('Starting handleTransactions...')
         try {

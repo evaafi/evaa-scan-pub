@@ -1,9 +1,8 @@
-import {Log, User} from "./types";
-import {Pool, PoolConfig} from "pg";
-import { Address } from "@ton/core";
-import { PoolConfig as EvaaPoolConifg, PoolAssetConfig, PoolAssetsConfig } from "@evaafi/sdk";
-import { UserPrincipals } from "../services/indexer/types";
-import { AssertionError } from "assert";
+import { PoolConfig as EvaaPoolConifg, PoolAssetConfig, PoolAssetsConfig } from "@evaafi/sdk"
+import { Address } from "@ton/core"
+import { Pool, PoolConfig } from "pg"
+import { UserPrincipals } from "../services/indexer/types"
+import { Log, User } from "./types"
 
 export function getFriendlyAddress(address: string | Address): string {
     if (typeof address === 'string') {
@@ -241,6 +240,22 @@ export class MyDatabase {
                 log.redeemedAssetBRate.toString()
             ],
         );
+    }
+
+    async getUsers(limit: number, offset: number) {
+        const usersQuery = this.pgPool.query(
+            `SELECT * FROM ${this.usersTable} LIMIT $1 OFFSET $2`, [limit, offset]
+        );
+        const countQuery = this.pgPool.query(
+            `SELECT COUNT(*) FROM ${this.usersTable}`
+        );
+
+        const [users, countResult] = await Promise.all([usersQuery, countQuery]);
+
+        return {
+            users: users.rows,
+            count: parseInt(countResult.rows[0].count, 10)
+        };
     }
 
     async addUser(
